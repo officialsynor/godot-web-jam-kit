@@ -76,9 +76,28 @@ scripts/hazard.gd        Area2D chaser that grows over time, caught_player signa
 scenes/game.tscn/gd      reference game: start card, score, win, death, restart
 scenes/preflight.tscn/gd    smoke test: rendering, input, audio, isolation
 tools/serve.py           local server with COOP/COEP + wasm MIME type
+build.ps1                one command: import -> error check -> export -> serve
+fonts/PressStart2P-Regular.ttf  pixel font (OFL), downloaded for offline use
+audio/kenney_interface_sounds/  100 CC0 .wav UI sounds, downloaded
 .github/workflows/       tag push -> web export -> butler push to itch.io
 build/.gdignore          stops Godot re-importing its own export output
 ```
+
+### The `]` trap — read this before running any shell command
+
+The project folder is named `GAME]`, and **`]` is a PowerShell wildcard
+character**. Plain `Test-Path`, `Get-Item`, `Get-ChildItem` and `Copy-Item`
+silently report that existing files **do not exist**:
+
+```
+Test-Path  "D:\Hack club\GAME]\build\web\index.html"              -> False
+Test-Path -LiteralPath "D:\Hack club\GAME]\build\web\index.html"  -> True
+```
+
+This already cost time once — an export looked "empty" when it was fine. If a
+script of your own needs to check a path in this repo, **always use
+`-LiteralPath`**.
+
 
 ### The reference game (`scenes/game.tscn`)
 
@@ -203,18 +222,36 @@ Three plans, in order of preference:
 3. **You ask and are told yes** — get the answer in writing (a screenshot of the
    chat is enough) before you rely on it.
 
-Either way, the non-negotiable half:
+**Already downloaded, so venue Wi-Fi cannot hurt you:**
 
-- **Fonts** — put a `.ttf` in `res://`. Do not hotlink Google Fonts; it adds a
-  CORS dependency and breaks offline.
-- **Free, no-attribution sources** if you do want assets: Kenney (CC0) for SFX
-  and UI, sfxr/jsfxr for retro blips. Lock a palette first, then generate a small
-  consistent set — never one-off images.
+- [fonts/PressStart2P-Regular.ttf](file:///d:/Hack%20club/GAME%5D/fonts) — pixel font, OFL licensed.
+  Load it in code with `load("res://fonts/PressStart2P-Regular.ttf")`.
+  Use it for the **title, score, and win/lose text** — that is the 40% Artwork
+  score, and it costs you one line.
+- [audio/kenney_interface_sounds](file:///d:/Hack%20club/GAME%5D/audio/kenney_interface_sounds) — 100 CC0
+  UI sounds. Names tell you what they are: `click_00*`, `confirmation_00*`,
+  `error_00*`, `bong_001`, `drop_00*`, `back_00*`, `close_00*`.
+  Grab one with `load("res://audio/kenney_interface_sounds/confirmation_001.wav")`.
+
+Both are hand-made, not AI-generated, so they are safe even under strict rules.
+
+Anything else you want must be grabbed **before** you leave, not at the venue.
 
 
 ---
 
 ## 7. Commands
+
+**Use the script.** It runs all four steps in the right order and refuses to
+export a build whose scripts do not load:
+
+```powershell
+cd "d:\Hack club\GAME]"
+.\build.ps1              # import -> error check -> export -> serve on :8080
+.\build.ps1 -NoServe     # build only, for the final ship
+```
+
+By hand, if you need to:
 
 ```powershell
 $GODOT = "D:\Hack club\Godot_v4.7.2-stable_win64_console.exe"
@@ -226,7 +263,7 @@ $PROJ  = "d:\Hack club\GAME]"
 & $GODOT --headless --path $PROJ --import
 & $GODOT --headless --path $PROJ --quit-after 60
 
-# Export a web build
+# Export a web build (takes about 4 seconds)
 & $GODOT --headless --path $PROJ --export-release "Web" "build/web/index.html"
 
 # Serve it (then open http://127.0.0.1:8080/)
@@ -235,6 +272,9 @@ python tools/serve.py "d:\Hack club\GAME]\build\web" 8080
 # Open the editor
 Start-Process "D:\Hack club\Godot_v4.7.2-stable_win64.exe" -ArgumentList "--path", $PROJ
 ```
+
+> Remember: checking any of those output paths with `Test-Path` needs
+> `-LiteralPath`, or it lies about the `]` in the folder name.
 
 ### Publishing to itch.io
 
