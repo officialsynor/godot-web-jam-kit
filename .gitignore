@@ -1,0 +1,19 @@
+# Godot editor cache — rebuilt automatically on open, never commit it.
+.godot/
+
+# Godot import/export caches
+.import/
+export.cfg
+
+# Build output from `godot --export-release`
+build/
+dist/
+*.tpz
+
+# OS cruft
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# NOTE: export_presets.cfg is deliberately NOT ignored.
+# The CI workflow needs it to produce a byte-identical build to your local one.

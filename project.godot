@@ -1,0 +1,41 @@
+; Engine configuration file.
+;
+; Hand-maintained on purpose. The settings that decide whether the web export
+; survives are collected here so they stay reviewable in diffs.
+;
+; Two of them matter more than the rest:
+;   rendering/renderer/rendering_method = gl_compatibility
+;       Forward+ needs WebGPU, which most browsers still do not ship.
+;   window/stretch/mode = canvas_items
+;       itch.io embeds the game in an iframe of unknown size; this keeps the
+;       game anchored to the viewport instead of to a fixed pixel rectangle.
+
+config_version=5
+
+[application]
+
+config/name="JamGame"
+run/main_scene="res://scenes/game.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://icon.svg"
+boot_splash/bg_color=Color(0.05, 0.05, 0.07, 1)
+boot_splash/show_image=false
+
+[autoload]
+
+GameState="*res://autoload/game_state.gd"
+AudioDirector="*res://autoload/audio_director.gd"
+SceneRouter="*res://autoload/scene_router.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
