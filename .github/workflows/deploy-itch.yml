@@ -72,4 +72,7 @@ jobs:
           curl -fsSL -o /tmp/butler.zip \
             "https://github.com/itchio/butler/releases/download/v${BUTLER_VERSION}/butler-linux-amd64.zip"
           unzip -q /tmp/butler.zip -d /tmp/butler
+          # The release zip does not carry the executable bit, so the extracted
+          # binary is 0644 and running it fails with exit code 126.
+          chmod +x /tmp/butler/linux-amd64/butler
           /tmp/butler/linux-amd64/butler push build/web "$ITCH_USER/$ITCH_GAME:web"
