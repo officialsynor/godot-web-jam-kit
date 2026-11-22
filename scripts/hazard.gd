@@ -36,7 +36,7 @@ func _process(delta: float) -> void:
 	_speed += SPEED_GROWTH_PER_SECOND * delta
 	_refresh_shape()
 
-	var player := get_tree().get_first_node_in_group("player")
+	var player := get_tree().get_first_node_in_group(Player.GROUP)
 	if player == null:
 		return
 	position = position.move_toward(player.position, _speed * delta)

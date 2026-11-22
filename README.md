@@ -1,4 +1,4 @@
-# JamGame — Hack Club Haven Panipat web jam
+# REFERENCE GAME — Hack Club Haven Panipat web jam
 
 A Godot 4.7.2 game that exports to a single-page HTML5 build and plays in the
 browser. Source is here so the project can be submitted open source, as the
@@ -128,8 +128,10 @@ a `v*` tag.
   [fonts/OFL-PressStart2P.txt](fonts/OFL-PressStart2P.txt).
 - **Sounds** — Kenney "Interface Sounds", CC0. See
   [audio/kenney_interface_sounds/LICENSE.txt](audio/kenney_interface_sounds/LICENSE.txt).
-- **Everything else** — drawn as `Polygon2D` shapes in code, and the music is
-  synthesised at runtime by `AudioDirector.make_tone()` / `_build_music()`.
+- **Everything else** — all visuals are `Polygon2D` shapes built in code. The
+  music is a short arpeggio synthesised at runtime by `Game._build_music()`;
+  `AudioDirector.make_tone()` also exists for placeholder tones and is what the
+  preflight smoke scene plays.
 
 Both asset packs are hand-made, not AI-generated, so they carry no risk under
 jam rules that restrict generated assets. The project also avoids AI-generated

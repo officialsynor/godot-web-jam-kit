@@ -13,7 +13,12 @@ const TARGET_SCORE := 12
 const STARTING_COLLECTIBLES := 6
 
 # --- theme slot ------------------------------------------------------------
-# On theme-reveal day change these four lines and nothing else.
+# On theme-reveal day the title changes in TWO places, and they must change
+# together or the browser tab ends up naming one game while the title card
+# names another:
+#   * GAME_TITLE below                          -> the in-game title card
+#   * application/config/name in project.godot  -> the browser tab / window title
+# The font and sound paths below only need touching if you swap the assets.
 const GAME_TITLE := "REFERENCE GAME"
 const FONT_PATH := "res://fonts/PressStart2P-Regular.ttf"
 const SFX_DIR := "res://audio/kenney_interface_sounds/"

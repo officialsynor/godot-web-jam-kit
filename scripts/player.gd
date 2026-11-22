@@ -12,6 +12,10 @@ const SPEED := 330.0
 const ACCELERATION := 2400.0
 const FRICTION := 2000.0
 const HALF_SIZE := 14.0
+## Name of the group the hazard uses to find the player. Declared once here and
+## referenced as Player.GROUP from the other side, so the two ends of that link
+## cannot drift apart into a silent no-op.
+const GROUP := "player"
 ## Close enough to the drag point that chasing it further would look like jitter.
 const TOUCH_DEADZONE := 6.0
 
@@ -25,7 +29,7 @@ var _has_move_target := false
 
 func _ready() -> void:
 	# The hazard finds the player through this group.
-	add_to_group("player")
+	add_to_group(GROUP)
 
 	_visual = Polygon2D.new()
 	_visual.polygon = PackedVector2Array([
