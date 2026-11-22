@@ -5,13 +5,24 @@ extends Node2D
 ## so that on theme-reveal day you only have to change *what it looks like*,
 ## not *whether it runs*.
 ##
-## Deliberately asset-free: every visual is a Polygon2D and every sound is
-## synthesised in code, so this whole scene exports as a tiny .pck. That is also
-## the safest option if the jam's rules turn out to restrict generated assets.
+## Visuals are Polygon2D and audio is the vendored CC0 Kenney pack plus one
+## synthesised arpeggio, so there is no licensing risk and no dangling asset.
 
 const ARENA_MARGIN := 48.0
 const TARGET_SCORE := 12
 const STARTING_COLLECTIBLES := 6
+
+# --- theme slot ------------------------------------------------------------
+# On theme-reveal day change these four lines and nothing else.
+const GAME_TITLE := "REFERENCE GAME"
+const FONT_PATH := "res://fonts/PressStart2P-Regular.ttf"
+const SFX_DIR := "res://audio/kenney_interface_sounds/"
+# ---------------------------------------------------------------------------
+
+# Juice tuning. Cheapest perceived-quality-per-minute wins, in this order.
+const SHAKE_ON_HIT := 14.0
+const SHAKE_DECAY := 52.0
+const HIT_PAUSE_SECONDS := 0.07
 
 var _arena := Rect2()
 var _started := false
@@ -19,17 +30,24 @@ var _over := false
 
 var _player: Player
 var _hazard: Hazard
+var _font: Font
 var _score_label: Label
 var _hint_label: Label
 var _start_overlay: Control
 
+var _sfx_start: AudioStream
 var _sfx_pickup: AudioStream
 var _sfx_hit: AudioStream
+var _sfx_win: AudioStream
 var _music: AudioStream
+
+var _shake := 0.0
 
 
 func _ready() -> void:
 	randomize()
+	_font = load(FONT_PATH) as Font
+
 	_arena = Rect2(
 		Vector2(ARENA_MARGIN, ARENA_MARGIN),
 		get_viewport_rect().size - Vector2(ARENA_MARGIN, ARENA_MARGIN) * 2.0)
@@ -38,8 +56,10 @@ func _ready() -> void:
 	_build_ui()
 	_draw_arena()
 
-	GameState.reset_run()
+	# Connect BEFORE reset_run(), otherwise the initial "SCORE 0 / 12" emit
+	# happens with nobody listening and the HUD stays blank until first pickup.
 	GameState.score_changed.connect(_on_score_changed)
+	GameState.reset_run()
 
 	_spawn_player()
 	_spawn_hazard()
@@ -52,11 +72,21 @@ func _ready() -> void:
 	_hazard.set_process(false)
 
 
+func _exit_tree() -> void:
+	# A scene change or reload landing inside hit-pause would otherwise leave
+	# the whole engine frozen at time_scale 0.
+	Engine.time_scale = 1.0
+
+
 # --- setup -----------------------------------------------------------------
 
 func _build_audio() -> void:
-	_sfx_pickup = AudioDirector.make_tone(880.0, 0.09)
-	_sfx_hit = AudioDirector.make_tone(150.0, 0.5)
+	# Hand-made CC0 sounds (Kenney interface pack) rather than synthesised
+	# tones — audio is 20% of the peer-voting score.
+	_sfx_start = load(SFX_DIR + "confirmation_002.wav") as AudioStream
+	_sfx_pickup = load(SFX_DIR + "pluck_001.wav") as AudioStream
+	_sfx_hit = load(SFX_DIR + "error_005.wav") as AudioStream
+	_sfx_win = load(SFX_DIR + "confirmation_001.wav") as AudioStream
 	_music = _build_music()
 
 
@@ -71,7 +101,8 @@ func _build_ui() -> void:
 	_score_label.offset_top = 20.0
 	_score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_score_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	_score_label.add_theme_font_size_override("font_size", 36)
+	_score_label.add_theme_font_override("font", _font)
+	_score_label.add_theme_font_size_override("font_size", 24)
 	layer.add_child(_score_label)
 
 	_hint_label = Label.new()
@@ -79,23 +110,28 @@ func _build_ui() -> void:
 	_hint_label.offset_bottom = -20.0
 	_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hint_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-	_hint_label.add_theme_font_size_override("font_size", 20)
+	_hint_label.add_theme_font_override("font", _font)
+	_hint_label.add_theme_font_size_override("font_size", 16)
 	_hint_label.text = "PRESS ANY KEY OR CLICK TO START"
 	layer.add_child(_hint_label)
 
-	# Title card. Soaks the first click, so it doubles as the audio gesture.
+	# Title card. It deliberately does NOT capture mouse input: the start
+	# gesture is read in _input(), which runs before GUI handling, so a click
+	# or tap anywhere starts the game and unlocks audio. A MOUSE_FILTER_STOP
+	# overlay here swallows the click and the card silently stops working.
 	_start_overlay = ColorRect.new()
 	_start_overlay.color = Color(0.04, 0.04, 0.06, 0.94)
 	_start_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_start_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	_start_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(_start_overlay)
 
 	var title := Label.new()
-	title.text = "REFERENCE GAME\n\nPRESS ANY KEY TO START"
+	title.text = "%s\n\nPRESS ANY KEY OR CLICK TO START" % GAME_TITLE
 	title.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 44)
+	title.add_theme_font_override("font", _font)
+	title.add_theme_font_size_override("font_size", 40)
 	_start_overlay.add_child(title)
 
 
@@ -146,7 +182,10 @@ func _random_arena_point() -> Vector2:
 
 # --- input -----------------------------------------------------------------
 
-func _unhandled_input(event: InputEvent) -> void:
+# _input() rather than _unhandled_input(): it runs before GUI handling, so the
+# full-screen title card cannot eat the click that is supposed to start the
+# game. A swallowed first click is the single easiest way to look broken.
+func _input(event: InputEvent) -> void:
 	# Browsers refuse to start an AudioContext before a real gesture. Every
 	# input is a candidate; unlock() is idempotent.
 	if not AudioDirector.is_unlocked() and _is_gesture(event):
@@ -157,8 +196,21 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	if _over and event.is_action_pressed("restart"):
-		_restart()
+	if _over:
+		if event.is_action_pressed("restart"):
+			_restart()
+		return
+
+	# Real touch only. Mouse drag is deliberately not movement, so a desktop
+	# click-to-start never leaves the player drifting toward the cursor.
+	if event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed:
+			_player.set_move_target(touch.position)
+		else:
+			_player.clear_move_target()
+	elif event is InputEventScreenDrag:
+		_player.set_move_target((event as InputEventScreenDrag).position)
 
 
 func _is_gesture(event: InputEvent) -> bool:
@@ -176,13 +228,17 @@ func _start() -> void:
 		return
 	_started = true
 	_start_overlay.hide()
-	_hint_label.text = "WASD / ARROWS TO MOVE    ·    R TO RESTART"
+	_hint_label.text = "WASD / ARROWS OR DRAG TO MOVE   |   R TO RESTART"
 	_player.set_physics_process(true)
 	_hazard.set_process(true)
+	AudioDirector.play_sfx(_sfx_start, -2.0)
 	AudioDirector.play_music(_music)
 
 
 func _restart() -> void:
+	# Hit-pause must never survive the reload, or the fresh scene inherits a
+	# frozen clock and nothing moves.
+	Engine.time_scale = 1.0
 	get_tree().reload_current_scene()
 
 
@@ -197,10 +253,11 @@ func _on_picked_up(at: Vector2) -> void:
 		return
 	GameState.add_score(1)
 	_burst(at)
-	AudioDirector.play_sfx(_sfx_pickup, -4.0)
 	if GameState.score >= TARGET_SCORE:
-		_finish("YOU WIN — %d POINTS. PRESS R TO PLAY AGAIN." % GameState.score)
+		AudioDirector.play_sfx(_sfx_win, 0.0)
+		_finish("YOU WIN - %d POINTS. PRESS R TO PLAY AGAIN." % GameState.score)
 	else:
+		AudioDirector.play_sfx(_sfx_pickup, -4.0)
 		_spawn_collectible()
 
 
@@ -209,17 +266,39 @@ func _on_caught() -> void:
 		return
 	_burst(_player.global_position)
 	AudioDirector.play_sfx(_sfx_hit, 0.0)
-	_finish("CAUGHT — PRESS R TO TRY AGAIN")
+	_finish("CAUGHT - PRESS R TO TRY AGAIN")
+	_shake = SHAKE_ON_HIT
+	_hit_pause()
 
 
 func _finish(message: String) -> void:
 	_over = true
 	_player.set_physics_process(false)
+	_player.clear_move_target()
 	_hazard.set_process(false)
 	_hint_label.text = message
 
 
 # --- juice -----------------------------------------------------------------
+
+func _process(delta: float) -> void:
+	# The shake moves this Node2D only, so the world rattles while the HUD —
+	# which lives on its own CanvasLayer — stays perfectly still.
+	if _shake <= 0.0:
+		if position != Vector2.ZERO:
+			position = Vector2.ZERO
+		return
+	_shake = maxf(_shake - SHAKE_DECAY * delta, 0.0)
+	position = Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)) * _shake
+
+
+## Freezes the clock for a few frames on impact. `ignore_time_scale` is what
+## lets the timer still fire while time_scale is 0.
+func _hit_pause() -> void:
+	Engine.time_scale = 0.0
+	var timer := get_tree().create_timer(HIT_PAUSE_SECONDS, true, false, true)
+	timer.timeout.connect(func() -> void: Engine.time_scale = 1.0)
+
 
 ## A one-shot particle burst. Cheapest visible reward you can add: the player
 ## sees a number change, but the burst is what makes it feel like it counted.

@@ -12,8 +12,15 @@ const SPEED := 330.0
 const ACCELERATION := 2400.0
 const FRICTION := 2000.0
 const HALF_SIZE := 14.0
+## Close enough to the drag point that chasing it further would look like jitter.
+const TOUCH_DEADZONE := 6.0
 
 var _visual: Polygon2D
+
+# Touch/drag steering. Set by the game from InputEventScreenTouch/Drag so the
+# game is playable on a phone, where there is no keyboard to reach for.
+var _move_target := Vector2.ZERO
+var _has_move_target := false
 
 
 func _ready() -> void:
@@ -37,11 +44,29 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	var direction := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+
+	# Keyboard wins if a key is held; otherwise steer toward the last touch
+	# point. Same speed and same lag, so both control paths feel identical.
+	if direction == Vector2.ZERO and _has_move_target:
+		var to_target := _move_target - global_position
+		if to_target.length() > TOUCH_DEADZONE:
+			direction = to_target.normalized()
+
 	var wanted := direction * SPEED
 	var rate := ACCELERATION if direction != Vector2.ZERO else FRICTION
 	velocity = velocity.move_toward(wanted, rate * delta)
 	move_and_slide()
 	_squash(direction, delta)
+
+
+## Called on touch press and on every drag update.
+func set_move_target(target: Vector2) -> void:
+	_move_target = target
+	_has_move_target = true
+
+
+func clear_move_target() -> void:
+	_has_move_target = false
 
 
 func _squash(direction: Vector2, delta: float) -> void:

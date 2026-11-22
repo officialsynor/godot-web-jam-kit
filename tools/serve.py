@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""Serve a Godot web export with the headers it needs to actually run.
+"""Serve a Godot web export the way itch.io will, from a local port.
 
-Godot's threaded web build wants SharedArrayBuffer, and browsers only expose
-that on a cross-origin-isolated page. So:
+This project exports with thread support OFF, so it does not need
+SharedArrayBuffer and would in fact run from a plain static server. The two
+cross-origin-isolation headers below are therefore belt-and-braces: harmless
+here, and they keep this script correct if thread support is ever switched
+back on. What *is* genuinely required:
 
   * Opening index.html from the filesystem never works (file:// has no headers).
-  * A plain `python -m http.server` also fails, and fails confusingly.
+  * `.wasm` must be served as application/wasm or the browser refuses to
+    compile it, which is what makes a plain `python -m http.server` fail.
 
-This script sends the two isolation headers plus the correct wasm MIME type.
+So this script sends the isolation headers plus the correct wasm MIME type.
 
     python tools/serve.py build/web 8080
 

@@ -27,9 +27,11 @@ goal is that when the theme drops, **zero time is spent on tooling**.
 | GitHub CLI | 2.105.0 — available if you want to create the remote repo |
 | Python | 3.14.3 (used by `tools/serve.py`) |
 
-**Verified end to end:** a headless web export produces `index.wasm` (39.5 MB),
-`index.js` (280 KB), `index.pck` (33 KB) and `index.html`, and `tools/serve.py`
-serves them with the correct `application/wasm` MIME type.
+**Verified end to end:** a headless web export produces `index.wasm` (39,514,754
+bytes — 39.5 MB decimal, 37.7 MiB), `index.js` (273 KB), `index.pck` (823 KB)
+and `index.html`, and `tools/serve.py` serves all four with the correct MIME
+types (`application/wasm`, `application/octet-stream`) and COOP/COEP headers.
+Re-checked with `build.ps1 -NoServe` plus an HTTP probe.
 
 ### One deliberate trade-off
 
@@ -70,15 +72,19 @@ icon.svg                 placeholder icon
 autoload/game_state.gd   score + all input bindings, registered in code
 autoload/audio_director.gd  music/SFX + browser audio unlock + make_tone()
 autoload/scene_router.gd    fade-to-black scene switching on its own CanvasLayer
-scripts/player.gd        CharacterBody2D: acceleration/friction + squash & stretch
+scripts/player.gd        CharacterBody2D: acceleration/friction, squash & stretch,
+                         keyboard + touch/drag steering
 scripts/collectible.gd   Area2D pickup, picked_up(at) signal, bobbing/spinning
 scripts/hazard.gd        Area2D chaser that grows over time, caught_player signal
-scenes/game.tscn/gd      reference game: start card, score, win, death, restart
+scenes/game.tscn/gd      reference game: start card, score, win, death, restart,
+                         screen shake + hit-pause on impact
 scenes/preflight.tscn/gd    smoke test: rendering, input, audio, isolation
 tools/serve.py           local server with COOP/COEP + wasm MIME type
 build.ps1                one command: import -> error check -> export -> serve
-fonts/PressStart2P-Regular.ttf  pixel font (OFL), downloaded for offline use
-audio/kenney_interface_sounds/  100 CC0 .wav UI sounds, downloaded
+fonts/PressStart2P-Regular.ttf  pixel font (OFL), wired into every UI element
+audio/kenney_interface_sounds/  100 CC0 .wav UI sounds, 4 of them wired in
+README.md                build, controls, layout, deployment, licensing
+LICENSE                  MIT — required for the open-source submission
 .github/workflows/       tag push -> web export -> butler push to itch.io
 build/.gdignore          stops Godot re-importing its own export output
 ```
@@ -103,9 +109,9 @@ script of your own needs to check a path in this repo, **always use
 
 A complete working loop you can reskin instead of starting from an empty scene:
 start card → move → grab diamonds → score → win at 12, or get caught → **R** to
-restart. It is deliberately **asset-free**: every visual is a `Polygon2D` built
-in code and every sound is synthesised, so it exports as a tiny `.pck` and
-carries no asset-licensing risk.
+restart. Every visual is a `Polygon2D` built in code, and the sounds come from
+the vendored CC0 Kenney pack plus one synthesised arpeggio — so there is still
+no asset-licensing risk, and no third-party art to credit.
 
 Use it as a parts bin. The three patterns worth copying verbatim:
 
@@ -194,8 +200,10 @@ who play for about a minute each. Two consequences:
    Ship a title screen so the player has something to look at.
 5. **Stay on `gl_compatibility`.** Forward+ needs WebGPU, which most voters'
    browsers do not have.
-6. **Assume mobile.** A large share of itch traffic is phones. Map touch input,
-   or at minimum state "desktop only" on the page.
+6. **Assume mobile.** A large share of itch traffic is phones. Touch and drag
+   steering is wired up — `Player.set_move_target()` makes the player follow
+   the finger, and a held key still overrides it. Say "best on desktop" on the
+   page if the core verb turns out to need precision.
 7. **A stale cache looks exactly like a broken build.** `serve.py` sends
    `Cache-Control: no-store` for this reason.
 
